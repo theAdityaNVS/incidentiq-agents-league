@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IncidentIQ — Root-Cause Reasoning Dashboard</title>
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons for high-tech dashboard aesthetics -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Markdown Parser for the Post-Mortem -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #09090b;
+      --bg-deep: #0c0e17;
+      --panel-bg: rgba(20, 20, 25, 0.75);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      
+      --accent-purple: #a78bfa;
+      --accent-purple-glow: rgba(167, 139, 250, 0.15);
+      --accent-cyan: #22d3ee;
+      --accent-cyan-glow: rgba(34, 211, 238, 0.15);
+      --accent-green: #10b981;
+      --accent-green-glow: rgba(16, 185, 129, 0.15);
+      --accent-red: #ef4444;
+      --accent-red-glow: rgba(239, 68, 68, 0.15);
+      --accent-orange: #f59e0b;
+      --accent-orange-glow: rgba(245, 158, 11, 0.15);
+      
+      --text-primary: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      
+      --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Fira Code', 'JetBrains Mono', monospace;
+      
+      --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      line-height: 1.5;
+      overflow-x: hidden;
+      padding-bottom: 5rem;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Core Container Layout */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Glassmorphism Panel Utility */
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7);
+      transition: var(--transition-smooth);
+    }
+
+    /* Header Styling */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 1.25rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .logo-container {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--accent-purple);
+      box-shadow: 0 0 15px var(--accent-purple-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(167, 139, 250, 0.1);
+    }
+
+    .logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .brand-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #fff 40%, var(--accent-purple) 70%, var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 30px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent-green);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.05);
+      transition: var(--transition-smooth);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .status-badge.diagnosing {
+      color: var(--accent-purple);
+      background: rgba(139, 92, 246, 0.08);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    .status-badge.diagnosing .status-dot {
+      background-color: var(--accent-purple);
+      box-shadow: 0 0 8px var(--accent-purple);
+      animation: pulse-glow 1.5s infinite ease-in-out;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { transform: scale(1); opacity: 0.6; }
+      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 12px var(--accent-purple); }
+    }
+
+    /* Dashboard Layout Grids */
+    .dashboard-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Incident Detail Card */
+    .incident-panel {
+      padding: 1.75rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .incident-panel::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent-red);
+      box-shadow: 0 0 15px var(--accent-red);
+    }
+
+    .incident-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .incident-title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .incident-id {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--accent-red);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      letter-spacing: 0.05em;
+    }
+
+    .incident-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .incident-service-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      padding: 0.3rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .incident-service-badge i {
+      color: var(--accent-cyan);
+    }
+
+    .incident-summary {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+    }
+
+    .incident-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 1.25rem;
+    }
+
+    .stat-box {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .stat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stat-box.spiked .stat-icon i {
+      color: var(--accent-red);
+    }
+    .stat-box.time .stat-icon i {
+      color: var(--accent-cyan);
+    }
+
+    .stat-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-val {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Diagnosis Control Section */
+    .diagnose-trigger-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem;
+      text-align: center;
+      gap: 1.25rem;
+    }
+
+    .btn-diagnose {
+      position: relative;
+      background: linear-gradient(135deg, var(--accent-purple) 0%, #7c3aed 100%);
+      color: white;
+      font-family: var(--font-sans);
+      font-weight: 700;
+      font-size: 1.15rem;
+      padding: 0.95rem 2.5rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 0 25px rgba(139, 92, 246, 0.3);
+      transition: var(--transition-smooth);
+    }
+    .btn-diagnose:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 35px rgba(139, 92, 246, 0.5);
+    }
+    .btn-diagnose:active {
+      transform: translateY(1px);
+    }
+    .btn-diagnose::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -50%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+      transform: skewX(-20deg);
+      transition: 0.75s;
+    }
+    .btn-diagnose:hover::before {
+      left: 150%;
+    }
+
+    .btn-diagnose i {
+      transition: transform 0.3s ease;
+    }
+    .btn-diagnose:hover i {
+      transform: rotate(15deg) scale(1.1);
+    }
+
+    .diagnose-cta-subtext {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      letter-spacing: 0.025em;
+    }
+
+    /* Terminal Console Panel */
+    .terminal-panel {
+      display: none;
+      flex-direction: column;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #020204;
+      overflow: hidden;
+      margin-top: 1rem;
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+
+    .terminal-header {
+      background: #0a0a0f;
+      padding: 0.65rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .terminal-window-buttons {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .window-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+    .window-dot.close { background-color: #ef4444; }
+    .window-dot.minimize { background-color: #fbbf24; }
+    .window-dot.maximize { background-color: #10b981; }
+
+    .terminal-title {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .terminal-body {
+      padding: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: #38bdf8;
+      min-height: 180px;
+      max-height: 250px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .terminal-line {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .terminal-timestamp {
+      color: var(--text-muted);
+      user-select: none;
+    }
+    .terminal-tag {
+      font-weight: 600;
+    }
+    .terminal-tag.info { color: var(--accent-purple); }
+    .terminal-tag.tool { color: var(--accent-cyan); }
+    .terminal-tag.success { color: var(--accent-green); }
+    
+    .terminal-message {
+      color: #e2e8f0;
+    }
+
+    /* Sequential Reveal Blocks */
+    .reveal-section {
+      display: none;
+      flex-direction: column;
+      gap: 2rem;
+      animation: fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .reveal-block {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .reveal-block.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 0.5rem;
+    }
+    .section-title-row i {
+      color: var(--accent-purple);
+    }
+    .section-title-row h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+    }
+
+    /* Timeline Styling */
+    .timeline-container {
+      position: relative;
+      padding-left: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .timeline-container::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--accent-cyan) 0%, rgba(34, 211, 238, 0.1) 100%);
+    }
+
+    .timeline-item {
+      position: relative;
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.02);
+      transition: var(--transition-smooth);
+    }
+    .timeline-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(34, 211, 238, 0.25);
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -2.35rem;
+      top: 1.25rem;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--bg-dark);
+      border: 3px solid var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan-glow);
+      z-index: 2;
+    }
+
+    .timeline-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .timeline-tool-name {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--accent-cyan);
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .timeline-tool-args {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      color: var(--text-secondary);
+    }
+
+    .timeline-btn-toggle {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      transition: var(--transition-smooth);
+    }
+    .timeline-btn-toggle:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .timeline-output-container {
+      display: none;
+      margin-top: 0.75rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 0.75rem;
+      animation: slide-down 0.25s ease-out;
+    }
+
+    @keyframes slide-down {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .timeline-output {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: #020204;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.03);
+      color: #38bdf8;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    /* Hypotheses Section */
+    .hypotheses-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .hypothesis-card {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+    }
+
+    .hypothesis-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .hypothesis-statement {
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--text-primary);
+    }
+
+    .verdict-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .verdict-badge.kept {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--accent-green);
+    }
+    .verdict-badge.eliminated {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--accent-red);
+    }
+
+    .hypothesis-evidence-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .evidence-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .evidence-item {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 2px solid var(--text-muted);
+      padding: 0.4rem 0.6rem;
+      border-radius: 0 4px 4px 0;
+    }
+    .hypothesis-card.kept .evidence-item {
+      border-left-color: var(--accent-green);
+    }
+    .hypothesis-card.eliminated .evidence-item {
+      border-left-color: var(--accent-red);
+    }
+
+    .hypothesis-reasoning {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      margin-top: auto;
+    }
+
+    /* Root Cause Highlight Panel */
+    .root-cause-panel {
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(167, 139, 250, 0.25);
+      background: linear-gradient(135deg, rgba(20, 20, 25, 0.9) 0%, rgba(139, 92, 246, 0.06) 100%);
+      box-shadow: 0 0 30px rgba(139, 92, 246, 0.1);
+    }
+    .root-cause-panel::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--accent-purple) 0%, var(--accent-cyan) 100%);
+      box-shadow: 0 0 15px var(--accent-purple);
+    }
+
+    .root-cause-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--accent-purple);
+    }
+    .root-cause-header i {
+      filter: drop-shadow(0 0 8px var(--accent-purple-glow));
+    }
+    .root-cause-header h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .root-cause-content {
+      font-size: 1.15rem;
+      line-height: 1.6;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* Actions Layout (Mitigation & Durable Fix) */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .action-panel {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .action-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .action-panel.mitigation .action-panel-header { color: var(--accent-green); }
+    .action-panel.fix .action-panel-header { color: var(--accent-orange); }
+
+    .action-description {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .action-button-container {
+      margin-top: auto;
+      padding-top: 1rem;
+    }
+
+    .btn-action-execute {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.25rem;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: var(--transition-smooth);
+    }
+    .action-panel.mitigation .btn-action-execute:hover {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: var(--accent-green);
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+    }
+    .action-panel.fix .btn-action-execute:hover {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: var(--accent-orange);
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.1);
+    }
+
+    /* Post Mortem Section (Bottom Bar) */
+    .postmortem-trigger-bar {
+      margin-top: 3rem;
+      display: flex;
+      justify-content: center;
+      animation: fade-in 1s ease-out forwards;
+    }
+
+    .btn-postmortem {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--panel-border);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 0.8rem 2rem;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition-smooth);
+    }
+    .btn-postmortem:hover {
+      background: rgba(167, 139, 250, 0.05);
+      border-color: rgba(167, 139, 250, 0.3);
+      color: var(--accent-purple);
+      box-shadow: 0 0 20px rgba(167, 139, 250, 0.1);
+      transform: translateY(-1px);
+    }
+
+    /* Modal Overlay (Glassmorphism Report) */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(2, 2, 4, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem 1.5rem;
+      animation: modal-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes modal-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-container {
+      width: 100%;
+      max-width: 850px;
+      height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(20px);
+      animation: modal-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes modal-slide-up {
+      from { transform: translateY(20px); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(20, 20, 25, 0.95);
+    }
+
+    .modal-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .modal-title i {
+      color: var(--accent-purple);
+    }
+
+    .modal-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn-modal-action {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 0.85rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: var(--transition-smooth);
+    }
+    .btn-modal-action:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    .btn-modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3rem;
+      border-radius: 50%;
+      transition: var(--transition-smooth);
+    }
+    .btn-modal-close:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    .modal-body {
+      flex: 1;
+      padding: 2rem 2.25rem;
+      overflow-y: auto;
+      background: #0c0d12;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      line-height: 1.7;
+    }
+
+    /* Markdown styling inside post-mortem */
+    .post-mortem-content h1,
+    .post-mortem-content h2,
+    .post-mortem-content h3 {
+      color: var(--text-primary);
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .post-mortem-content h1 {
+      font-size: 1.85rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.5rem;
+      margin-top: 0;
+    }
+    .post-mortem-content h2 {
+      font-size: 1.35rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 0.35rem;
+    }
+    .post-mortem-content h3 {
+      font-size: 1.1rem;
+    }
+    .post-mortem-content p {
+      margin-bottom: 1rem;
+    }
+    .post-mortem-content ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .post-mortem-content li {
+      padding-left: 0.15rem;
+    }
+    .post-mortem-content code {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      color: var(--accent-cyan);
+    }
+    .post-mortem-content pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      border: 1px solid var(--panel-border);
+    }
+    .post-mortem-content pre code {
+      background: none;
+      padding: 0;
+      color: var(--text-primary);
+    }
+    .post-mortem-content blockquote {
+      border-left: 3px solid var(--accent-purple);
+      background: rgba(167, 139, 250, 0.03);
+      padding: 0.75rem 1rem;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 1rem;
+    }
+    .post-mortem-content strong {
+      color: var(--text-primary);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(20, 20, 25, 0.95);
+      border: 1px solid var(--accent-green);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+      border-radius: 10px;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      transform: translateY(100px);
+      opacity: 0;
+      z-index: 200;
+      transition: var(--transition-smooth);
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .toast i {
+      color: var(--accent-green);
+    }
+    .toast-msg {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+      .incident-meta {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .dashboard-grid {
+        gap: 1.5rem;
+      }
+      .actions-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Dashboard Header -->
+    <header>
+      <div class="brand">
+        <div class="logo-container">
+          <img src="logo.png" alt="IncidentIQ Logo" class="logo-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23a78bfa\' stroke-width=\'2\'><path d=\'M12 2L2 7l10 5 10-5-10-5z\'/><path d=\'M2 17l10 5 10-5\'/><path d=\'M2 12l10 5 10-5\'/></svg>'">
+        </div>
+        <h1 class="brand-title">IncidentIQ</h1>
+      </div>
+      <div class="status-badge" id="agent-status-badge">
+        <div class="status-dot"></div>
+        <span id="agent-status-text">Agent Standby</span>
+      </div>
+    </header>
+
+    <div class="dashboard-grid">
+      
+      <!-- Incident Detail Section -->
+      <section class="incident-panel glass-panel">
+        <div class="incident-meta">
+          <div class="incident-title-row">
+            <span class="incident-id" id="inc-id">...</span>
+            <h2 class="incident-title" id="inc-title">Loading incident...</h2>
+          </div>
+          <div class="incident-service-badge">
+            <i data-lucide="server"></i>
+            <span id="inc-service">...</span>
+          </div>
+        </div>
+        
+        <p class="incident-summary" id="inc-summary">
+          Fetching telemetries and incident reports from logs...
+        </p>
+
+        <div class="incident-stats">
+          <div class="stat-box spiked">
+            <div class="stat-icon">
+              <i data-lucide="trending-up"></i>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Impact Threshold</span>
+              <span class="stat-val" id="stat-impact">Latency Spiked 5x</span>
+            </div>
+          </div>
+          <div class="stat-box time">
+            <div class="stat-icon">
+              <i data-lucide="clock"></i>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Incident Started</span>
+              <span class="stat-val" id="stat-started">...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Diagnose Control / Terminal Console -->
+      <section class="glass-panel" style="padding: 1.5rem;">
+        <div class="diagnose-trigger-section" id="diagnose-trigger-container">
+          <button class="btn-diagnose" id="btn-run-diagnose">
+            <i data-lucide="play"></i>
+            <span>Run Agent Diagnosis</span>
+          </button>
+          <p class="diagnose-cta-subtext">Autonomously parse logs, telemetry metrics, and deployment history to find root cause</p>
+        </div>
+
+        <!-- Simulated Terminal Log -->
+        <div class="terminal-panel" id="console-terminal">
+          <div class="terminal-header">
+            <div class="terminal-window-buttons">
+              <div class="window-dot close"></div>
+              <div class="window-dot minimize"></div>
+              <div class="window-dot maximize"></div>
+            </div>
+            <span class="terminal-title">incidentiq-reasoning-console</span>
+            <div style="width: 33px;"></div> <!-- Spacer -->
+          </div>
+          <div class="terminal-body" id="console-output">
+            <!-- Simulated rows added dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Diagnosis Results (Revealed Step-by-Step) -->
+      <main class="reveal-section" id="diagnosis-results">
+        
+        <!-- Step 1: Tool-Call Timeline -->
+        <div class="reveal-block" id="block-timeline">
+          <div class="section-title-row">
+            <i data-lucide="workflow"></i>
+            <h2>Evidence Collection Timeline</h2>
+          </div>
+          <div class="timeline-container" id="timeline-flow">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Step 2: Hypotheses Section -->
+        <div class="reveal-block" id="block-hypotheses">
+          <div class="section-title-row">
+            <i data-lucide="brain-circuit"></i>
+            <h2>Hypothesis Evaluation</h2>
+          </div>
+          <div class="hypotheses-grid" id="hypotheses-grid">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Step 3: Root Cause Panel -->
+        <div class="reveal-block" id="block-root-cause">
+          <div class="section-title-row">
+            <i data-lucide="alert-triangle" style="color: var(--accent-red);"></i>
+            <h2>Identified Root Cause</h2>
+          </div>
+          <div class="root-cause-panel glass-panel">
+            <div class="root-cause-header">
+              <i data-lucide="target" style="width: 20px; height: 20px;"></i>
+              <h3>Bottleneck Pinpointed</h3>
+            </div>
+            <div class="root-cause-content" id="root-cause-text">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Actions Section (Mitigation & Durable Fix) -->
+        <div class="reveal-block" id="block-actions">
+          <div class="section-title-row">
+            <i data-lucide="shield-alert"></i>
+            <h2>Resolution & Action Items</h2>
+          </div>
+          <div class="actions-grid">
+            
+            <div class="action-panel glass-panel mitigation">
+              <div class="action-panel-header">
+                <i data-lucide="zap"></i>
+                <span>Immediate Mitigation</span>
+              </div>
+              <p class="action-description" id="mitigation-text">
+                <!-- Populated dynamically -->
+              </p>
+              <div class="action-button-container">
+                <button class="btn-action-execute" onclick="triggerMockAction('mitigation', 'Initiating service rollback to version v2.40.x... Rollback complete.')">
+                  <i data-lucide="undo-2"></i>
+                  <span>Execute Rollback</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="action-panel glass-panel fix">
+              <div class="action-panel-header">
+                <i data-lucide="wrench"></i>
+                <span>Durable Fix</span>
+              </div>
+              <p class="action-description" id="durable-fix-text">
+                <!-- Populated dynamically -->
+              </p>
+              <div class="action-button-container">
+                <button class="btn-action-execute" onclick="triggerMockAction('fix', 'Generating pull request draft for Redis configuration fix... Draft PR #1092 created.')">
+                  <i data-lucide="git-pull-request"></i>
+                  <span>Draft PR Fix</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Post-Mortem Trigger Panel -->
+        <div class="postmortem-trigger-bar reveal-block" id="block-postmortem-trigger">
+          <button class="btn-postmortem" id="btn-view-postmortem">
+            <i data-lucide="file-text"></i>
+            <span>View Full Post-Mortem Report</span>
+          </button>
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Post-Mortem Report Modal -->
+  <div class="modal-overlay" id="postmortem-modal">
+    <div class="modal-container glass-panel">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i data-lucide="file-text"></i>
+          <span>Incident Post-Mortem Report</span>
+        </h3>
+        <div class="modal-header-actions">
+          <button class="btn-modal-action" id="btn-copy-pm">
+            <i data-lucide="copy"></i>
+            <span>Copy Markdown</span>
+          </button>
+          <button class="btn-modal-close" id="btn-close-modal">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="post-mortem-content" id="post-mortem-html">
+          <!-- Markdown rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div class="toast" id="system-toast">
+    <i data-lucide="check-circle-2"></i>
+    <span class="toast-msg" id="toast-message">Action executed successfully.</span>
+  </div>
+
+  <!-- Javascript Logic -->
+  <script>
+    // Initialize icons
+    lucide.createIcons();
+
+    // Elements
+    const elements = {
+      incId: document.getElementById('inc-id'),
+      incTitle: document.getElementById('inc-title'),
+      incService: document.getElementById('inc-service'),
+      incSummary: document.getElementById('inc-summary'),
+      statStarted: document.getElementById('stat-started'),
+      btnRunDiagnose: document.getElementById('btn-run-diagnose'),
+      diagnoseCtaContainer: document.getElementById('diagnose-trigger-container'),
+      consoleTerminal: document.getElementById('console-terminal'),
+      consoleOutput: document.getElementById('console-output'),
+      diagnosisResults: document.getElementById('diagnosis-results'),
+      timelineFlow: document.getElementById('timeline-flow'),
+      hypothesesGrid: document.getElementById('hypotheses-grid'),
+      rootCauseText: document.getElementById('root-cause-text'),
+      mitigationText: document.getElementById('mitigation-text'),
+      durableFixText: document.getElementById('durable-fix-text'),
+      btnViewPostmortem: document.getElementById('btn-view-postmortem'),
+      postmortemModal: document.getElementById('postmortem-modal'),
+      btnCloseModal: document.getElementById('btn-close-modal'),
+      btnCopyPm: document.getElementById('btn-copy-pm'),
+      postMortemHtml: document.getElementById('post-mortem-html'),
+      agentStatusBadge: document.getElementById('agent-status-badge'),
+      agentStatusText: document.getElementById('agent-status-text'),
+      toast: document.getElementById('system-toast'),
+      toastMsg: document.getElementById('toast-message'),
+      
+      // Reveal blocks
+      blockTimeline: document.getElementById('block-timeline'),
+      blockHypotheses: document.getElementById('block-hypotheses'),
+      blockRootCause: document.getElementById('block-root-cause'),
+      blockActions: document.getElementById('block-actions'),
+      blockPostmortemTrigger: document.getElementById('block-postmortem-trigger')
+    };
+
+    let postMortemMarkdown = '';
+    let incidentData = null;
+
+    // Format ISO string to readable string
+    function formatTime(isoStr) {
+      if (!isoStr) return '...';
+      const d = new Date(isoStr);
+      return d.toUTCString().replace('GMT', 'UTC');
+    }
+
+    // Toast functionality
+    function showToast(message) {
+      elements.toastMsg.textContent = message;
+      elements.toast.classList.add('show');
+      setTimeout(() => {
+        elements.toast.classList.remove('show');
+      }, 3500);
+    }
+
+    // Simulated action trigger
+    function triggerMockAction(type, msg) {
+      showToast(msg);
+    }
+
+    // Log to simulated terminal console
+    function logToTerminal(tag, message, tagClass = 'info') {
+      const now = new Date();
+      const timeStr = now.toISOString().substring(11, 19);
+      
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      line.innerHTML = `
+        <span class="terminal-timestamp">${timeStr}</span>
+        <span class="terminal-tag ${tagClass}">[${tag}]</span>
+        <span class="terminal-message">${message}</span>
+      `;
+      elements.consoleOutput.appendChild(line);
+      elements.consoleOutput.scrollTop = elements.consoleOutput.scrollHeight;
+    }
+
+    // On Load: Fetch Incident
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/api/incident');
+        if (!response.ok) throw new Error('Failed to fetch incident');
+        
+        incidentData = await response.json();
+        
+        // Populate fields
+        elements.incId.textContent = incidentData.id || 'INC-4471';
+        elements.incTitle.textContent = incidentData.title || 'Checkout latency spiked';
+        elements.incService.textContent = incidentData.affected_service || 'checkout-api';
+        elements.incSummary.textContent = incidentData.summary || '';
+        elements.statStarted.textContent = formatTime(incidentData.started_at);
+        
+        // Refresh icons just in case
+        lucide.createIcons();
+      } catch (err) {
+        console.error('Error fetching incident info:', err);
+        elements.incTitle.textContent = 'Failed to load incident record';
+        elements.incSummary.textContent = 'API server could not be reached. Verify that the FastAPI backend is running.';
+      }
+    });
+
+    // Handle Diagnose Request
+    elements.btnRunDiagnose.addEventListener('click', async () => {
+      // 1. Adjust statuses
+      elements.diagnoseCtaContainer.style.display = 'none';
+      elements.consoleTerminal.style.display = 'flex';
+      
+      elements.agentStatusBadge.classList.add('diagnosing');
+      elements.agentStatusText.textContent = 'Agent Diagnosing';
+      
+      // Clear previous outputs
+      elements.consoleOutput.innerHTML = '';
+      
+      // Start typing simulation
+      logToTerminal('SYSTEM', 'Initializing IncidentIQ reasoning core...', 'info');
+      
+      setTimeout(() => {
+        logToTerminal('AGENT', `Target Incident: ${elements.incId.textContent} - service: ${elements.incService.textContent}`, 'info');
+      }, 400);
+
+      setTimeout(() => {
+        logToTerminal('ENGINE', 'Formulating diagnostics hypotheses...', 'info');
+        logToTerminal('HYPOTHESIS', 'H1: A recent deploy on checkout-api introduced regression.', 'info');
+        logToTerminal('HYPOTHESIS', 'H2: Upstream gateway service degraded checkout.', 'info');
+        logToTerminal('HYPOTHESIS', 'H3: CPU/host resource exhaustion is choking requests.', 'info');
+      }, 900);
+
+      setTimeout(() => {
+        logToTerminal('TOOL_DISPATCH', 'Invoking telemetry extraction tools...', 'tool');
+      }, 1600);
+
+      // Trigger the real POST request
+      let traceData = null;
+      try {
+        const response = await fetch('/api/diagnose', { method: 'POST' });
+        if (!response.ok) throw new Error('Diagnosis API returned error status');
+        traceData = await response.json();
+      } catch (err) {
+        console.error(err);
+        setTimeout(() => {
+          logToTerminal('ERROR', 'Failed to retrieve diagnosis trace from backend.', 'eliminated');
+          elements.agentStatusBadge.classList.remove('diagnosing');
+          elements.agentStatusText.textContent = 'Agent Error';
+        }, 2000);
+        return;
+      }
+
+      // Simulate tool results arrival in console
+      setTimeout(() => {
+        logToTerminal('TOOL_CALL', 'get_recent_deploys(service="checkout-api") -> retrieved 3 events ✓', 'success');
+      }, 2100);
+
+      setTimeout(() => {
+        logToTerminal('TOOL_CALL', 'get_metrics(service="checkout-api") -> retrieved telemetry signals ✓', 'success');
+      }, 2600);
+
+      setTimeout(() => {
+        logToTerminal('TOOL_CALL', 'get_logs(service="checkout-api") -> scanned latest 20 stdout statements ✓', 'success');
+      }, 3100);
+
+      setTimeout(() => {
+        logToTerminal('ENGINE', 'Running causal evidence analyzer...', 'info');
+        logToTerminal('ANALYSIS', 'H1: KEPT. Evidence: Deploy checkout-api v2.41.0 matched onset precisely; redis pool saturated.', 'success');
+        logToTerminal('ANALYSIS', 'H2: ELIMINATED. Evidence: payments-gateway latency remains low (flat line).', 'info');
+        logToTerminal('ANALYSIS', 'H3: ELIMINATED. Evidence: CPU usage under 41%.', 'info');
+      }, 3700);
+
+      setTimeout(() => {
+        logToTerminal('SYSTEM', 'Root cause identified. Resolution plans synthesized.', 'success');
+        
+        // Proceed to show results
+        renderDiagnosisResults(traceData);
+      }, 4300);
+    });
+
+    // Populate and orchestrate sequential reveal
+    function renderDiagnosisResults(trace) {
+      // Reset statuses
+      elements.agentStatusBadge.classList.remove('diagnosing');
+      elements.agentStatusText.textContent = 'Agent Standby';
+      
+      // Populate Tool Calls Timeline
+      elements.timelineFlow.innerHTML = '';
+      trace.tool_calls.forEach((tc, index) => {
+        const item = document.createElement('div');
+        item.className = 'timeline-item';
+        
+        // Pretty print JSON args & result
+        const prettyArgs = JSON.stringify(tc.args);
+        let prettyResult = '';
+        try {
+          // Check if it's already a JSON string and parse for nicer formatting
+          const parsed = JSON.parse(tc.result);
+          prettyResult = JSON.stringify(parsed, null, 2);
+        } catch (e) {
+          prettyResult = tc.result;
+        }
+
+        item.innerHTML = `
+          <div class="timeline-dot"></div>
+          <div class="timeline-item-header">
+            <div class="timeline-tool-name">
+              <i data-lucide="terminal"></i>
+              <span>${tc.tool}</span>
+            </div>
+            <div class="timeline-tool-args">${prettyArgs}</div>
+            <button class="timeline-btn-toggle" onclick="toggleTimelineOutput(${index})">
+              <i data-lucide="chevron-down" id="chevron-${index}"></i>
+              <span id="btn-text-${index}">Expand Output</span>
+            </button>
+          </div>
+          <div class="timeline-output-container" id="output-container-${index}">
+            <pre class="timeline-output"><code>${prettyResult}</code></pre>
+          </div>
+        `;
+        elements.timelineFlow.appendChild(item);
+      });
+
+      // Populate Hypotheses Grid
+      elements.hypothesesGrid.innerHTML = '';
+      trace.hypotheses.forEach(h => {
+        const card = document.createElement('div');
+        const isKept = h.verdict.toLowerCase() === 'kept';
+        card.className = `hypothesis-card glass-panel ${h.verdict.toLowerCase()}`;
+        if (isKept) card.classList.add('glow-green');
+        else if (h.verdict.toLowerCase() === 'eliminated') card.classList.add('glow-red');
+
+        // Render evidence list items
+        let evidenceHtml = '';
+        if (h.evidence && h.evidence.length > 0) {
+          evidenceHtml = `
+            <div class="hypothesis-evidence-container">
+              <span class="evidence-title">Discovered Evidence</span>
+              ${h.evidence.map(ev => `<div class="evidence-item">${ev}</div>`).join('')}
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="hypothesis-card-header">
+            <h4 class="hypothesis-statement">${h.statement}</h4>
+            <span class="verdict-badge ${h.verdict.toLowerCase()}">${h.verdict}</span>
+          </div>
+          ${evidenceHtml}
+          <p class="hypothesis-reasoning">${h.reasoning}</p>
+        `;
+        elements.hypothesesGrid.appendChild(card);
+      });
+
+      // Populate conclusion panels
+      elements.rootCauseText.textContent = trace.root_cause;
+      elements.mitigationText.textContent = trace.mitigation;
+      elements.durableFixText.textContent = trace.durable_fix;
+
+      // Re-initialize dynamic Lucide icons
+      lucide.createIcons();
+
+      // Start the sequential reveal process
+      elements.diagnosisResults.style.display = 'flex';
+      
+      const blocks = [
+        elements.blockTimeline,
+        elements.blockHypotheses,
+        elements.blockRootCause,
+        elements.blockActions,
+        elements.blockPostmortemTrigger
+      ];
+
+      // Delay reveal for dramatic cinematic SRE effect
+      blocks.forEach((block, idx) => {
+        setTimeout(() => {
+          block.classList.add('visible');
+          
+          // Scroll slightly to reveal the next block
+          if (idx > 0) {
+            block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, idx * 1000); // 1.0 second between each stage
+      });
+    }
+
+    // Toggle Timeline Code Output
+    function toggleTimelineOutput(index) {
+      const container = document.getElementById(`output-container-${index}`);
+      const chevron = document.getElementById(`chevron-${index}`);
+      const text = document.getElementById(`btn-text-${index}`);
+      
+      if (container.style.display === 'block') {
+        container.style.display = 'none';
+        text.textContent = 'Expand Output';
+        chevron.style.transform = 'rotate(0deg)';
+      } else {
+        container.style.display = 'block';
+        text.textContent = 'Collapse';
+        chevron.style.transform = 'rotate(180deg)';
+      }
+    }
+
+    // Handle View Post-Mortem Click
+    elements.btnViewPostmortem.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/postmortem');
+        if (!response.ok) throw new Error('Failed to fetch post-mortem markdown');
+        
+        const data = await response.json();
+        postMortemMarkdown = data.markdown;
+        
+        // Parse markdown to HTML using Marked
+        elements.postMortemHtml.innerHTML = marked.parse(postMortemMarkdown);
+        
+        // Open Modal
+        elements.postmortemModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Lock background scroll
+        
+        // Refresh icons inside modal
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+        showToast('Error displaying post-mortem report.');
+      }
+    });
+
+    // Close Modal
+    function closeModal() {
+      elements.postmortemModal.style.display = 'none';
+      document.body.style.overflow = 'auto'; // Unlock scroll
+    }
+
+    elements.btnCloseModal.addEventListener('click', closeModal);
+    elements.postmortemModal.addEventListener('click', (e) => {
+      if (e.target === elements.postmortemModal) {
+        closeModal();
+      }
+    });
+
+    // Copy Post-Mortem Markdown to Clipboard
+    elements.btnCopyPm.addEventListener('click', () => {
+      if (!postMortemMarkdown) return;
+      navigator.clipboard.writeText(postMortemMarkdown)
+        .then(() => {
+          showToast('Post-mortem markdown copied to clipboard!');
+        })
+        .catch(err => {
+          console.error('Failed to copy text: ', err);
+          showToast('Failed to copy text to clipboard.');
+        });
+    });
+  </script>
+</body>
+</html>

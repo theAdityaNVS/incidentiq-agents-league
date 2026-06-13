@@ -1,0 +1,7 @@
+{
+  "id": "INC-4471",
+  "title": "Checkout latency spiked ~5x",
+  "summary": "checkout-api p95 latency rose from ~240ms to ~1300ms starting ~14:05 UTC. Customers report slow 'Place order' button. No full outage.",
+  "started_at": "2026-06-13T14:05:00Z",
+  "affected_service": "checkout-api"
+}

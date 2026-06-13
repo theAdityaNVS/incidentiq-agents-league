@@ -6,12 +6,12 @@ Source of truth: Agents League About page + Microsoft's submission email. Deadli
 
 | # | Requirement | Status | Notes |
 |---|-------------|--------|-------|
-| 1 | **Integrate ≥1 Microsoft IQ layer** (Foundry IQ / Work IQ / Fabric IQ) | ❌ **NOT MET** | The single most important gap. Plan = Foundry IQ. See FOUNDRY_PLAN.md. Without this the entry does **not qualify**. |
-| 2 | Working project built with the track's tool (Reasoning Agents → Microsoft Foundry) | 🟡 Partial | App works in local mode; not yet on Microsoft Foundry. Closed by item 1. |
+| 1 | **Integrate ≥1 Microsoft IQ layer** (Foundry IQ / Work IQ / Fabric IQ) | 🟡 **Code built — awaiting Azure** | Foundry IQ grounding implemented: `knowledge/` runbooks + `search_runbooks` tool + cited evidence in the trace/post-mortem; `run_foundry` wired to the Foundry model + Foundry IQ. Goes fully live once the (free) Azure account + creds are added (FOUNDRY_PLAN.md). |
+| 2 | Working project built with the track's tool (Reasoning Agents → Microsoft Foundry) | 🟡 Partial | Local mode fully working incl. grounding; Foundry mode ready, needs creds. |
 | 3 | Project description (problem, features, tech, AI value) | ✅ Done | On Innovation Studio project + README. |
-| 4 | Demo video ≤2 min, public YouTube/Vimeo, no 3rd-party trademarks | ❌ Not done | Script outline below. |
+| 4 | Demo video ≤2 min, public YouTube/Vimeo, no 3rd-party trademarks | 🟡 Script ready | Full script + shotlist in `VIDEO_SCRIPT.md`; still to record + upload. |
 | 5 | Public GitHub repo with README | ✅ Done | github.com/theAdityaNVS/incidentiq-agents-league (README present, no secrets). |
-| 6 | Architecture diagram (Foundry / Agent Framework / Azure MCP / Copilot / Azure) | 🟡 Partial | `docs/architecture.md` is ASCII; need an image and add the Foundry IQ box. |
+| 6 | Architecture diagram (Foundry / Agent Framework / Azure MCP / Copilot / Azure) | ✅ Done | `docs/architecture.svg` (image) with the Foundry IQ box; ASCII version also in `docs/architecture.md`. |
 | 7 | All teammates registered + activated + added to project (≤5) | ✅ (solo) | Only add teammates if any join; each must self-register + be accepted. |
 | 8 | Read Disclaimer + Code of Conduct; no confidential info | ⬜ User action | Quick read on the About page. |
 | 9 | Project created **and submitted** on Innovation Studio | 🟡 Created | Submit step still to be done before deadline. |

@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6d28d9"/><stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <marker id="arw" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .box{rx:10;ry:10;stroke-width:1.5}
+      .lbl{font-size:14px;font-weight:600;fill:#0f172a}
+      .sub{font-size:11px;fill:#475569}
+      .edge{stroke:#94a3b8;stroke-width:1.6;fill:none;marker-end:url(#arw)}
+      .tag{font-size:10px;fill:#64748b}
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="560" fill="#f8fafc"/>
+  <rect x="0" y="0" width="900" height="48" fill="url(#hdr)"/>
+  <text x="24" y="31" font-size="20" font-weight="700" fill="#fff">IncidentIQ — Root-Cause Reasoning Agent · Architecture</text>
+  <text x="876" y="31" font-size="12" fill="#e0e7ff" text-anchor="end">Agents League · Reasoning Agents · Foundry IQ</text>
+
+  <!-- Incident input -->
+  <rect class="box" x="30" y="120" width="170" height="80" fill="#fee2e2" stroke="#ef4444"/>
+  <text class="lbl" x="115" y="150" text-anchor="middle">Incident alert</text>
+  <text class="sub" x="115" y="170" text-anchor="middle">INC-4471</text>
+  <text class="sub" x="115" y="186" text-anchor="middle">checkout latency 5x</text>
+
+  <!-- Foundry agent -->
+  <rect class="box" x="300" y="90" width="300" height="180" fill="#ede9fe" stroke="#7c3aed"/>
+  <text class="lbl" x="450" y="118" text-anchor="middle">Microsoft Foundry Agent</text>
+  <text class="sub" x="450" y="138" text-anchor="middle">reasoning loop (Foundry IQ)</text>
+  <rect x="320" y="152" width="260" height="100" rx="8" fill="#fff" stroke="#c4b5fd"/>
+  <text class="sub" x="450" y="172" text-anchor="middle">1 restate  →  2 hypotheses</text>
+  <text class="sub" x="450" y="192" text-anchor="middle">3 test via tools  →  eliminate</text>
+  <text class="sub" x="450" y="212" text-anchor="middle">4 rank root cause (cited)</text>
+  <text class="sub" x="450" y="232" text-anchor="middle">5 mitigation + durable fix</text>
+
+  <!-- Tools -->
+  <rect class="box" x="300" y="320" width="300" height="92" fill="#ecfeff" stroke="#0891b2"/>
+  <text class="lbl" x="450" y="344" text-anchor="middle">Tools (Azure MCP)</text>
+  <text class="sub" x="450" y="366" text-anchor="middle">get_recent_deploys · get_metrics</text>
+  <text class="sub" x="450" y="384" text-anchor="middle">get_logs</text>
+  <text class="tag" x="450" y="402" text-anchor="middle">mock telemetry today → Azure Monitor / Log Analytics / GitHub</text>
+
+  <!-- Foundry IQ knowledge base -->
+  <rect class="box" x="660" y="320" width="210" height="92" fill="#fef9c3" stroke="#ca8a04"/>
+  <text class="lbl" x="765" y="344" text-anchor="middle">Foundry IQ</text>
+  <text class="sub" x="765" y="364" text-anchor="middle">knowledge base</text>
+  <text class="tag" x="765" y="384" text-anchor="middle">runbooks + post-mortems</text>
+  <text class="tag" x="765" y="400" text-anchor="middle">agentic retrieval → cited</text>
+
+  <!-- Output -->
+  <rect class="box" x="660" y="120" width="210" height="120" fill="#dcfce7" stroke="#16a34a"/>
+  <text class="lbl" x="765" y="148" text-anchor="middle">Output</text>
+  <text class="sub" x="765" y="170" text-anchor="middle">ReasoningTrace (JSON)</text>
+  <text class="sub" x="765" y="188" text-anchor="middle">ranked root cause + evidence</text>
+  <text class="sub" x="765" y="206" text-anchor="middle">cited post-mortem</text>
+  <text class="sub" x="765" y="224" text-anchor="middle">suggested fix / PR</text>
+
+  <!-- Edges -->
+  <path class="edge" d="M200,160 L298,170"/>
+  <path class="edge" d="M450,270 L450,318"/>
+  <path class="edge" d="M560,300 C620,300 650,330 658,352"/>
+  <path class="edge" d="M600,150 L658,150"/>
+
+  <!-- Footer band -->
+  <rect x="30" y="450" width="840" height="80" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text class="lbl" x="50" y="478">Web app</text>
+  <text class="sub" x="50" y="498">FastAPI backend — /api/incident · /api/diagnose · /api/postmortem  +  static SRE dashboard at /</text>
+  <text class="tag" x="50" y="516">Build assist: GitHub Copilot · Runs in deterministic local mode offline; Foundry mode adds Foundry IQ grounding · No secrets in repo</text>
+</svg>

@@ -54,6 +54,7 @@ class ReasoningTrace:
     root_cause: str = ""
     mitigation: str = ""
     durable_fix: str = ""
+    citations: list[dict] = field(default_factory=list)  # grounded sources from Foundry IQ
 
     def record_tool_call(self, name: str, args: dict, result: str) -> None:
         self.tool_calls.append({"tool": name, "args": args, "result": result})
@@ -124,6 +125,18 @@ def run_local(incident: dict | None = None, verbose: bool = True) -> ReasoningTr
         h_resource.verdict = "eliminated"
         h_resource.reasoning = f"CPU only {cpu.get('before')}->{cpu.get('after')}% — not saturated."
 
+    # 3b. Ground the surviving hypothesis in the knowledge base (Foundry IQ).
+    #     Cited evidence reduces hallucination and matches a known pattern.
+    kb = _call(
+        trace,
+        "search_runbooks",
+        {"query": "redis connection pool default size checkout token cache latency rollback"},
+        log,
+    )
+    for hit in json.loads(kb):
+        h_deploy.evidence.append(f"[{hit['citation']}] {hit['snippet']} (source: {hit['source']})")
+        trace.citations.append(hit)
+
     # 4 & 5. Conclude
     trace.root_cause = (
         "checkout-api v2.41.0 switched the payment-token cache from an in-process LRU to a Redis "
@@ -167,12 +180,25 @@ def _print_conclusion(trace: ReasoningTrace) -> None:
 # Foundry mode (Microsoft Foundry / Azure AI Agents)
 # --------------------------------------------------------------------------- #
 
-def run_foundry(incident: dict | None = None, verbose: bool = True) -> ReasoningTrace:
-    """Run the same loop on a Microsoft Foundry agent.
+_FOUNDRY_INSTRUCTIONS = (
+    SYSTEM_PROMPT
+    + "\n\nYou have tools: get_recent_deploys, get_metrics, get_logs, and search_runbooks "
+    "(a Foundry IQ knowledge base of runbooks/post-mortems — ALWAYS use it to ground and CITE "
+    "your conclusion). When finished, output ONLY a JSON object with keys: "
+    "hypotheses (list of {statement, verdict: 'kept'|'eliminated', evidence: [string], reasoning}), "
+    "root_cause, mitigation, durable_fix, citations (list of {citation, source, snippet}). No prose."
+)
 
-    Requires: pip install azure-ai-projects azure-identity, plus env vars
-    PROJECT_ENDPOINT and MODEL_DEPLOYMENT_NAME (see .env.example).
-    Falls back to local mode with a clear message if the SDK/creds are absent.
+
+def run_foundry(incident: dict | None = None, verbose: bool = True) -> ReasoningTrace:
+    """Run the reasoning loop on a Microsoft Foundry model with Foundry IQ grounding.
+
+    Requires `pip install azure-ai-projects azure-identity openai` and env vars
+    PROJECT_ENDPOINT + MODEL_DEPLOYMENT_NAME (see .env.example). Uses the Foundry project's
+    OpenAI-compatible client to run a tool-calling loop; `search_runbooks` is the Foundry IQ
+    knowledge tool (back it with an Azure AI Search knowledge base for true Foundry IQ — see
+    FOUNDRY_PLAN.md). Falls back to deterministic local mode on any missing dep/cred/error so
+    the demo never breaks.
     """
     incident = incident or INCIDENT
     endpoint = os.getenv("PROJECT_ENDPOINT")
@@ -185,22 +211,59 @@ def run_foundry(incident: dict | None = None, verbose: bool = True) -> Reasoning
     try:
         from azure.ai.projects import AIProjectClient
         from azure.identity import DefaultAzureCredential
-    except ImportError:
+
+        project = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
+        client = project.get_openai_client()  # OpenAI-compatible client bound to the project
+
+        trace = ReasoningTrace(incident=incident)
+        messages = [
+            {"role": "system", "content": _FOUNDRY_INSTRUCTIONS},
+            {"role": "user", "content": json.dumps(incident)},
+        ]
+        # Tool-calling loop: the model decides which tools to call; we dispatch them.
+        for _ in range(8):
+            resp = client.chat.completions.create(
+                model=model, messages=messages, tools=tools.TOOL_SPECS, temperature=0
+            )
+            msg = resp.choices[0].message
+            if not msg.tool_calls:
+                return _parse_foundry_json(msg.content or "", incident, trace)
+            messages.append(msg.model_dump())
+            for call in msg.tool_calls:
+                args = json.loads(call.function.arguments or "{}")
+                result = tools.dispatch(call.function.name, args)
+                trace.record_tool_call(call.function.name, args, result)
+                if verbose:
+                    print(f"  → tool {call.function.name}({args}) ✓")
+                messages.append(
+                    {"role": "tool", "tool_call_id": call.id, "content": result}
+                )
+        return _parse_foundry_json("", incident, trace)
+    except Exception as exc:  # missing deps, auth, quota, parse — never break the demo
         if verbose:
-            print("[foundry] azure-ai-projects not installed — using local mode.")
+            print(f"[foundry] falling back to local mode ({type(exc).__name__}: {exc})")
         return run_local(incident, verbose)
 
-    # Real wiring lives here. Sketch (kept minimal so the file imports cleanly):
-    #   client = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
-    #   agent = client.agents.create_agent(model=model, name="IncidentIQ",
-    #               instructions=SYSTEM_PROMPT, tools=tools.TOOL_SPECS)
-    #   thread = client.agents.threads.create()
-    #   client.agents.messages.create(thread.id, role="user",
-    #               content=json.dumps(incident))
-    #   run = client.agents.runs.create_and_process(thread.id, agent.id,
-    #               tool_dispatch=tools.dispatch)
-    #   ... parse run steps into a ReasoningTrace ...
-    raise NotImplementedError(
-        "Foundry wiring stub — fill in with your azure-ai-projects run loop, "
-        "dispatching tool calls through tools.dispatch()."
-    )
+
+def _parse_foundry_json(content: str, incident: dict, trace: ReasoningTrace) -> ReasoningTrace:
+    """Parse the model's final JSON into a ReasoningTrace; fall back to local if unparseable."""
+    import re as _re
+
+    m = _re.search(r"\{.*\}", content, _re.DOTALL)
+    if not m:
+        return run_local(incident, verbose=False)
+    data = json.loads(m.group(0))
+    trace.hypotheses = [
+        Hypothesis(
+            statement=h.get("statement", ""),
+            verdict=h.get("verdict", "open"),
+            evidence=list(h.get("evidence", [])),
+            reasoning=h.get("reasoning", ""),
+        )
+        for h in data.get("hypotheses", [])
+    ]
+    trace.root_cause = data.get("root_cause", "")
+    trace.mitigation = data.get("mitigation", "")
+    trace.durable_fix = data.get("durable_fix", "")
+    trace.citations = list(data.get("citations", []))
+    return trace

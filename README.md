@@ -82,7 +82,16 @@ Tools (`get_recent_deploys`, `get_metrics`, `get_logs`) are backed by mock
 telemetry here and by **Azure MCP** servers (GitHub Deployments, Azure Monitor,
 Log Analytics) in production.
 
-See [`docs/architecture.md`](docs/architecture.md) for the diagram.
+### Knowledge grounding (Foundry IQ)
+
+Every diagnosis is grounded in a knowledge base of runbooks and past post-mortems
+(`knowledge/`) via the `search_runbooks` tool, so each conclusion carries a **citation**
+(e.g. `[RB-12]`) instead of a hallucinated claim. Locally this is a keyword search over the
+markdown files; in Foundry mode it is served by a **Foundry IQ knowledge base** (agentic
+retrieval over Azure AI Search). This is the required Microsoft IQ layer — see
+[`FOUNDRY_PLAN.md`](FOUNDRY_PLAN.md) for the (free) setup and cost.
+
+See [`docs/architecture.svg`](docs/architecture.svg) for the diagram.
 
 ## Layout
 

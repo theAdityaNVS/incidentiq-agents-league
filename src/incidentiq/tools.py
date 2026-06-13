@@ -10,9 +10,16 @@ Microsoft Foundry agent.
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 from typing import Any
 
 from . import mock_data
+
+# Knowledge base of runbooks / past post-mortems. In production this is indexed by a
+# Foundry IQ knowledge base (agentic retrieval); locally we read these files directly so
+# the cited-grounding behaviour is demonstrable offline.
+_KNOWLEDGE_DIR = Path(__file__).resolve().parent.parent.parent / "knowledge"
 
 
 def get_recent_deploys(service: str | None = None, hours: int = 12) -> str:
@@ -34,12 +41,50 @@ def get_logs(service: str, limit: int = 20) -> str:
     return json.dumps(lines, indent=2)
 
 
+def search_runbooks(query: str, top: int = 3) -> str:
+    """Search the runbook / post-mortem knowledge base and return cited snippets.
+
+    Returns a JSON list of {source, citation, snippet}. `citation` is the source doc id
+    (e.g. "RB-12") so the agent can ground and cite each finding. In Foundry mode this is
+    served by a Foundry IQ knowledge base (agentic retrieval); locally it does a keyword
+    scan over the knowledge/ markdown files so the demo works offline.
+    """
+    terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
+    hits: list[dict[str, Any]] = []
+    if not _KNOWLEDGE_DIR.exists():
+        return json.dumps(hits)
+    for path in sorted(_KNOWLEDGE_DIR.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        low = text.lower()
+        score = sum(low.count(t) for t in terms)
+        if score == 0:
+            continue
+        # pick the most relevant paragraph as the snippet
+        paras = [p.strip() for p in text.split("\n\n") if p.strip()]
+        best = max(paras, key=lambda p: sum(p.lower().count(t) for t in terms))
+        hits.append(
+            {
+                "source": path.name,
+                "citation": path.stem.split("-")[0] + "-" + path.stem.split("-")[1]
+                if "-" in path.stem
+                else path.stem,
+                "snippet": " ".join(best.split())[:280],
+                "_score": score,
+            }
+        )
+    hits.sort(key=lambda h: h["_score"], reverse=True)
+    for h in hits:
+        h.pop("_score", None)
+    return json.dumps(hits[:top], indent=2)
+
+
 # --- Tool registry -----------------------------------------------------------
 
 TOOL_FUNCTIONS = {
     "get_recent_deploys": get_recent_deploys,
     "get_metrics": get_metrics,
     "get_logs": get_logs,
+    "search_runbooks": search_runbooks,
 }
 
 # OpenAI/Foundry-style function schemas, registered with the agent.
@@ -84,6 +129,23 @@ TOOL_SPECS: list[dict[str, Any]] = [
                     "limit": {"type": "integer"},
                 },
                 "required": ["service"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_runbooks",
+            "description": "Search the runbook and past post-mortem knowledge base (Foundry IQ) for "
+            "grounding. Returns cited snippets so each finding can reference an authoritative source "
+            "and avoid hallucination. Call this to confirm hypotheses against known patterns.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "What to look up, e.g. 'redis connection pool default size checkout'"},
+                    "top": {"type": "integer", "description": "Max results to return."},
+                },
+                "required": ["query"],
             },
         },
     },

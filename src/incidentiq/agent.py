@@ -167,7 +167,9 @@ def _call(trace: ReasoningTrace, name: str, args: dict, log) -> str:
 def _print_conclusion(trace: ReasoningTrace) -> None:
     print("\n  Hypotheses:")
     for h in trace.hypotheses:
-        mark = {"kept": "✓ KEPT", "eliminated": "✗ ELIMINATED", "open": "… OPEN"}[h.verdict]
+        mark = {"kept": "✓ KEPT", "eliminated": "✗ ELIMINATED", "open": "… OPEN"}.get(
+            str(h.verdict).lower(), str(h.verdict).upper()
+        )
         print(f"   [{mark}] {h.statement}")
         if h.reasoning:
             print(f"           {h.reasoning}")
@@ -221,16 +223,28 @@ def run_foundry(incident: dict | None = None, verbose: bool = True) -> Reasoning
             {"role": "user", "content": json.dumps(incident)},
         ]
         # Tool-calling loop: the model decides which tools to call; we dispatch them.
+        last_content = ""
         for _ in range(8):
             resp = client.chat.completions.create(
                 model=model, messages=messages, tools=tools.TOOL_SPECS, temperature=0
             )
             msg = resp.choices[0].message
+            last_content = msg.content or last_content
             if not msg.tool_calls:
                 return _parse_foundry_json(msg.content or "", incident, trace)
-            messages.append(msg.model_dump())
+            # Build the assistant message dict manually (avoids .model_dump() pydantic-v1 risk).
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": msg.content,
+                    "tool_calls": [tc.model_dump() for tc in msg.tool_calls],
+                }
+            )
             for call in msg.tool_calls:
-                args = json.loads(call.function.arguments or "{}")
+                try:
+                    args = json.loads(call.function.arguments or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
                 result = tools.dispatch(call.function.name, args)
                 trace.record_tool_call(call.function.name, args, result)
                 if verbose:
@@ -238,7 +252,8 @@ def run_foundry(incident: dict | None = None, verbose: bool = True) -> Reasoning
                 messages.append(
                     {"role": "tool", "tool_call_id": call.id, "content": result}
                 )
-        return _parse_foundry_json("", incident, trace)
+        # Loop exhausted: try to parse the last assistant message before falling back.
+        return _parse_foundry_json(last_content, incident, trace)
     except Exception as exc:  # missing deps, auth, quota, parse — never break the demo
         if verbose:
             print(f"[foundry] falling back to local mode ({type(exc).__name__}: {exc})")
@@ -249,10 +264,22 @@ def _parse_foundry_json(content: str, incident: dict, trace: ReasoningTrace) -> 
     """Parse the model's final JSON into a ReasoningTrace; fall back to local if unparseable."""
     import re as _re
 
-    m = _re.search(r"\{.*\}", content, _re.DOTALL)
-    if not m:
+    text = (content or "").strip()
+    # Strip markdown code fences if present.
+    text = _re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=_re.MULTILINE).strip()
+    data = None
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        # Fall back to the widest brace span (first '{' to last '}').
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            try:
+                data = json.loads(text[start : end + 1])
+            except json.JSONDecodeError:
+                data = None
+    if not isinstance(data, dict):
         return run_local(incident, verbose=False)
-    data = json.loads(m.group(0))
     trace.hypotheses = [
         Hypothesis(
             statement=h.get("statement", ""),

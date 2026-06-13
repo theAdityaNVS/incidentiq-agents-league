@@ -5,4 +5,5 @@ uvicorn[standard]>=0.29.0
 # Foundry mode dependencies (not needed for local/web-app mode):
 azure-ai-projects>=1.0.0b1
 azure-identity>=1.16.0
+azure-search-documents>=11.5.0
 python-dotenv>=1.0.0

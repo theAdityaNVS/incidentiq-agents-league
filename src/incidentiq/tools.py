@@ -10,6 +10,7 @@ Microsoft Foundry agent.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -41,14 +42,58 @@ def get_logs(service: str, limit: int = 20) -> str:
     return json.dumps(lines, indent=2)
 
 
+def _search_azure(query: str, top: int) -> list[dict[str, Any]] | None:
+    """Foundry IQ retrieval via Azure AI Search. Returns hits, or None to fall back to local.
+
+    Activates only when AZURE_SEARCH_ENDPOINT + AZURE_SEARCH_INDEX are set (see .env.example
+    and FOUNDRY_PLAN.md). Auth: AZURE_SEARCH_KEY if present, else DefaultAzureCredential.
+    """
+    endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
+    index = os.getenv("AZURE_SEARCH_INDEX")
+    if not endpoint or not index:
+        return None
+    try:
+        from azure.search.documents import SearchClient
+
+        key = os.getenv("AZURE_SEARCH_KEY")
+        if key:
+            from azure.core.credentials import AzureKeyCredential
+
+            cred = AzureKeyCredential(key)
+        else:
+            from azure.identity import DefaultAzureCredential
+
+            cred = DefaultAzureCredential()
+        client = SearchClient(endpoint=endpoint, index_name=index, credential=cred)
+        results = client.search(search_text=query, top=top)
+        hits: list[dict[str, Any]] = []
+        for r in results:
+            source = r.get("source") or r.get("title") or r.get("id") or "doc"
+            hits.append(
+                {
+                    "source": source,
+                    "citation": r.get("citation") or str(source).split(".")[0],
+                    "snippet": " ".join((r.get("content") or "").split())[:280],
+                }
+            )
+        return hits or None
+    except Exception:
+        # Any SDK/auth/network issue → fall back to the offline scan so the demo never breaks.
+        return None
+
+
 def search_runbooks(query: str, top: int = 3) -> str:
     """Search the runbook / post-mortem knowledge base and return cited snippets.
 
     Returns a JSON list of {source, citation, snippet}. `citation` is the source doc id
-    (e.g. "RB-12") so the agent can ground and cite each finding. In Foundry mode this is
-    served by a Foundry IQ knowledge base (agentic retrieval); locally it does a keyword
-    scan over the knowledge/ markdown files so the demo works offline.
+    (e.g. "RB-12") so the agent can ground and cite each finding. When Azure AI Search creds
+    are configured this is real **Foundry IQ agentic retrieval**; otherwise it falls back to
+    a keyword scan over the knowledge/ markdown files so the demo works offline.
     """
+    azure_hits = _search_azure(query, top)
+    if azure_hits is not None:
+        return json.dumps(azure_hits, indent=2)
+
     terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
     hits: list[dict[str, Any]] = []
     if not _KNOWLEDGE_DIR.exists():
@@ -153,8 +198,25 @@ TOOL_SPECS: list[dict[str, Any]] = [
 
 
 def dispatch(name: str, arguments: dict[str, Any]) -> str:
-    """Execute a tool call by name with the given arguments and return its string result."""
+    """Execute a tool call by name with the given arguments and return its string result.
+
+    Tolerant of unexpected/extra kwargs from the model: never raises, always returns a
+    string so the tool-calling loop stays consistent.
+    """
     fn = TOOL_FUNCTIONS.get(name)
     if fn is None:
         return json.dumps({"error": f"unknown tool '{name}'"})
-    return fn(**arguments)
+    try:
+        return fn(**arguments)
+    except TypeError:
+        # Model passed unexpected kwargs — keep only the ones the function accepts.
+        import inspect
+
+        allowed = set(inspect.signature(fn).parameters)
+        safe = {k: v for k, v in arguments.items() if k in allowed}
+        try:
+            return fn(**safe)
+        except Exception as exc:  # last-resort guard
+            return json.dumps({"error": f"{type(exc).__name__}: {exc}"})
+    except Exception as exc:
+        return json.dumps({"error": f"{type(exc).__name__}: {exc}"})

@@ -23,7 +23,9 @@ def to_markdown(trace: ReasoningTrace) -> str:
         "## How IncidentIQ reasoned to it",
     ]
     for h in trace.hypotheses:
-        mark = {"kept": "KEPT", "eliminated": "ELIMINATED", "open": "OPEN"}[h.verdict]
+        mark = {"kept": "KEPT", "eliminated": "ELIMINATED", "open": "OPEN"}.get(
+            str(h.verdict).lower(), str(h.verdict).upper()
+        )
         lines.append(f"- **[{mark}]** {h.statement}")
         if h.reasoning:
             lines.append(f"  - {h.reasoning}")

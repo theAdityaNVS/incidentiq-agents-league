@@ -20,7 +20,19 @@ from . import mock_data
 # Knowledge base of runbooks / past post-mortems. In production this is indexed by a
 # Foundry IQ knowledge base (agentic retrieval); locally we read these files directly so
 # the cited-grounding behaviour is demonstrable offline.
-_KNOWLEDGE_DIR = Path(__file__).resolve().parent.parent.parent / "knowledge"
+def _resolve_knowledge_dir() -> Path | None:
+    """Locate the knowledge/ dir across local + serverless (Vercel) layouts."""
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parent.parent.parent / "knowledge",  # repo root from src/incidentiq/
+        Path.cwd() / "knowledge",
+        Path("/var/task/knowledge"),
+    ]
+    candidates += [p / "knowledge" for p in list(here.parents)[:6]]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
 
 
 def get_recent_deploys(service: str | None = None, hours: int = 12) -> str:
@@ -96,9 +108,10 @@ def search_runbooks(query: str, top: int = 3) -> str:
 
     terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
     hits: list[dict[str, Any]] = []
-    if not _KNOWLEDGE_DIR.exists():
+    kdir = _resolve_knowledge_dir()
+    if kdir is None:
         return json.dumps(hits)
-    for path in sorted(_KNOWLEDGE_DIR.glob("*.md")):
+    for path in sorted(kdir.glob("*.md")):
         text = path.read_text(encoding="utf-8")
         low = text.lower()
         score = sum(low.count(t) for t in terms)

@@ -51,13 +51,18 @@ python -m incidentiq.main                            # CLI, local reasoning mode
 
 ## Decisions & constraints
 - **Local reasoning mode is the safe demo path** — always runs offline, no creds, no cost.
-- **Foundry IQ integration is MANDATORY to qualify** (hackathon rule). Currently NOT done — this is the #1 open item. See FOUNDRY_PLAN.md for the free/low-cost path (~$0 within Azure free tier + $200 credit).
-- **No secrets in git.** `.env` and `.venv` are git-ignored; only `.env.example` is committed.
+- **Foundry IQ integration is LIVE.** Azure AI Search `incidentiq-srch` (resource group `incidentiq-rg`, East US, free tier). Index `incidentiq-kb` with fields `content`/`source`/`citation`. Env vars in `.env` (gitignored) and Vercel production env. `_search_azure` in `tools.py` activates automatically when `AZURE_SEARCH_ENDPOINT` is set.
+- **No secrets in git.** `.env` is gitignored; admin key only in `.env` + Vercel env vars. Git history clean (verified `git log -S`).
 - **Safety:** no destructive actions are auto-executed (rollback / PR are suggestions, human-in-the-loop).
 
-## Current status (2026-06-13)
+## Current status (2026-06-15)
 - ✅ Profile activated, registered, project created on Innovation Studio
-- ✅ Reasoning agent + FastAPI backend + dashboard built and tested end-to-end (local mode)
-- ✅ Public GitHub repo pushed (no secrets)
-- ⬜ Foundry IQ integration (mandatory) — planned, not built
-- ⬜ Architecture diagram image · ⬜ 2-min demo video · ⬜ Final submit on Innovation Studio
+- ✅ Reasoning agent + FastAPI backend + dashboard built and tested end-to-end
+- ✅ Public GitHub repo pushed (no secrets in history)
+- ✅ **Foundry IQ integration LIVE** — Azure AI Search `incidentiq-srch` (East US, free tier), index `incidentiq-kb`, 3 runbooks indexed. `search_runbooks` routes to `_search_azure` when `AZURE_SEARCH_ENDPOINT` + `AZURE_SEARCH_INDEX` + `AZURE_SEARCH_KEY` are set. Confirmed 3 citations returned from live Vercel deployment.
+- ✅ Vercel env vars set + redeployed — `agents-league-microsoft.vercel.app` live with Azure citations
+- ✅ All P1 bugs fixed (regex, dispatch, verdict, citations panel, glow CSS)
+- ✅ Architecture diagram (`docs/architecture.svg`)
+- ⬜ 2-min demo video (script ready in `VIDEO_SCRIPT.md`) — record + upload + add link to Innovation Studio
+- ⬜ Read Disclaimer + CoC → Submit on Innovation Studio
+- ⬜ Discord post for community vote

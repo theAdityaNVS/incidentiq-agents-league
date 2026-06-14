@@ -47,7 +47,7 @@ Open **http://localhost:8000/docs** for the interactive API explorer.
 | `GET /api/postmortem` | Runs the reasoning loop, returns post-mortem Markdown |
 
 The frontend UI lives in `frontend/` and is served at `/`.
-Local reasoning mode only — no Azure credentials required.
+Set `AZURE_SEARCH_*` vars in `.env` (see `.env.example`) to enable live Foundry IQ retrieval.
 
 ## What a run looks like
 
@@ -73,10 +73,11 @@ Two execution paths share one reasoning loop and produce the same
 
 1. **Foundry mode** (`agent.run_foundry`) — a Microsoft Foundry / Azure AI agent
    with the tools in `tools.TOOL_SPECS` registered, orchestrated via the Agent
-   Framework. This is the required Microsoft IQ layer (Foundry IQ).
+   Framework, backed by **Foundry IQ** (Azure AI Search) for cited knowledge retrieval.
 2. **Local reasoning mode** (`agent.run_local`) — a deterministic, transparent
    stand-in that runs the identical hypothesis → tool-call → eliminate → conclude
-   loop offline, so the demo always works and the reasoning is inspectable.
+   loop offline. Also uses **Foundry IQ** retrieval when Azure creds are present,
+   so the demo always runs and the grounding story is always visible.
 
 Tools (`get_recent_deploys`, `get_metrics`, `get_logs`) are backed by mock
 telemetry here and by **Azure MCP** servers (GitHub Deployments, Azure Monitor,
@@ -86,10 +87,11 @@ Log Analytics) in production.
 
 Every diagnosis is grounded in a knowledge base of runbooks and past post-mortems
 (`knowledge/`) via the `search_runbooks` tool, so each conclusion carries a **citation**
-(e.g. `[RB-12]`) instead of a hallucinated claim. Locally this is a keyword search over the
-markdown files; in Foundry mode it is served by a **Foundry IQ knowledge base** (agentic
-retrieval over Azure AI Search). This is the required Microsoft IQ layer — see
-[`FOUNDRY_PLAN.md`](FOUNDRY_PLAN.md) for the (free) setup and cost.
+(e.g. `[RB-12]`) instead of a hallucinated claim. When `AZURE_SEARCH_ENDPOINT` /
+`AZURE_SEARCH_INDEX` / `AZURE_SEARCH_KEY` are set, `search_runbooks` performs real
+**Foundry IQ agentic retrieval** via Azure AI Search — this is the required Microsoft IQ
+layer. Without those env vars it falls back to a keyword scan over the local `knowledge/`
+files so the demo always runs offline. See [`.env.example`](.env.example) for the vars.
 
 See [`docs/architecture.svg`](docs/architecture.svg) for the diagram.
 
@@ -106,15 +108,16 @@ scenarios/        incident scenarios
 docs/             architecture
 ```
 
-## Submission checklist (see IDEA.md)
+## Submission checklist
 
 - [x] Innovation Studio profile activated + registered
 - [x] Project created on Innovation Studio (Reasoning Agents track)
-- [x] Working project — runnable reasoning loop with tools
-- [ ] Foundry wiring filled in (`agent.run_foundry` stub) + tested with creds
-- [ ] Demo video ≤2 min (problem → live run → architecture → impact)
-- [ ] Public GitHub repo linked in the project's Code Repository field
-- [ ] Architecture diagram attached
+- [x] Working project — runnable reasoning loop with tools, live at `agents-league-microsoft.vercel.app`
+- [x] **Foundry IQ integration live** — Azure AI Search (`incidentiq-srch`, East US) with 3 runbooks indexed; cited grounding confirmed in production
+- [x] Public GitHub repo — `github.com/theAdityaNVS/incidentiq-agents-league` (no secrets)
+- [x] Architecture diagram — `docs/architecture.svg`
+- [ ] Demo video ≤2 min (script in `VIDEO_SCRIPT.md`) — record, upload to YouTube/Vimeo, add link
+- [ ] Submit on Innovation Studio
 
 ## Tech
 

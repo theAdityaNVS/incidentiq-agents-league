@@ -35,6 +35,38 @@ def _resolve_knowledge_dir() -> Path | None:
     return None
 
 
+# In-code copy of the knowledge base so cited grounding works even where the knowledge/
+# files aren't on disk (e.g. Vercel serverless, which doesn't bundle non-imported data dirs).
+# Mirrors the knowledge/*.md files; the on-disk files are preferred when present.
+_EMBEDDED_KB: dict[str, str] = {
+    "RB-12-checkout-redis-cache.md": (
+        "RB-12 checkout-api payment-token cache. The Redis connection pool default max=10, "
+        "sized for low-concurrency dev, not production token-lookup volume. Symptom of an "
+        "undersized pool: redis_pool_wait_ms rises sharply and logs show 'redis pool exhausted, "
+        "waiting for connection'. Safe rollback: roll back checkout-api to the previous minor "
+        "(v2.40.x) to revert to the in-process LRU and restore latency, or feature-flag "
+        "token_cache=lru. Durable fix: raise redis.pool.max to at least 50 and add alerting on "
+        "redis_pool_wait_ms; add a short in-process L1 cache in front of Redis."
+    ),
+    "RB-07-latency-triage.md": (
+        "RB-07 latency spike triage. A regression that begins within ~5 minutes of a deploy is a "
+        "deploy regression until proven otherwise; pull recent deploys first. An upstream "
+        "dependency is only the cause if its own latency/error rate rose materially; a flat "
+        "upstream with a few timeouts is a symptom of the caller being slow, not the cause. CPU "
+        "under ~70% rules out CPU exhaustion. Connection-pool wait times in the hundreds of ms "
+        "indicate a saturated pool. Prefer the fastest safe mitigation (rollback / feature flag) first."
+    ),
+    "PM-INC-3990-redis-pool.md": (
+        "PM-INC-3990 prior incident on cart-api. A deploy moved session lookups to Redis; the "
+        "connection pool (max=10) saturated under production volume and p95 rose 4x. Resolved by "
+        "rolling back, then re-shipping with pool.max=64 plus an in-process L1 cache. Lesson: any "
+        "change moving a hot per-request lookup to a networked store must ship with a "
+        "production-sized connection pool and pool-wait alerting. This pattern has recurred on "
+        "checkout-api (see RB-12)."
+    ),
+}
+
+
 def get_recent_deploys(service: str | None = None, hours: int = 12) -> str:
     """Return recent deployments, optionally filtered to a service."""
     deploys = mock_data.DEPLOYS
@@ -108,24 +140,30 @@ def search_runbooks(query: str, top: int = 3) -> str:
 
     terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
     hits: list[dict[str, Any]] = []
+
+    # Prefer on-disk knowledge files; fall back to the embedded copy when the dir isn't
+    # present (e.g. serverless). Either way produces (filename, text) pairs to score.
     kdir = _resolve_knowledge_dir()
-    if kdir is None:
-        return json.dumps(hits)
-    for path in sorted(kdir.glob("*.md")):
-        text = path.read_text(encoding="utf-8")
+    if kdir is not None:
+        docs = [(p.name, p.read_text(encoding="utf-8")) for p in sorted(kdir.glob("*.md"))]
+    else:
+        docs = sorted(_EMBEDDED_KB.items())
+
+    for name, text in docs:
         low = text.lower()
         score = sum(low.count(t) for t in terms)
         if score == 0:
             continue
         # pick the most relevant paragraph as the snippet
-        paras = [p.strip() for p in text.split("\n\n") if p.strip()]
+        paras = [p.strip() for p in text.split("\n\n") if p.strip()] or [text]
         best = max(paras, key=lambda p: sum(p.lower().count(t) for t in terms))
+        stem = name.rsplit(".", 1)[0]
+        parts = stem.split("-")
+        citation = f"{parts[0]}-{parts[1]}" if len(parts) > 1 else stem
         hits.append(
             {
-                "source": path.name,
-                "citation": path.stem.split("-")[0] + "-" + path.stem.split("-")[1]
-                if "-" in path.stem
-                else path.stem,
+                "source": name,
+                "citation": citation,
                 "snippet": " ".join(best.split())[:280],
                 "_score": score,
             }

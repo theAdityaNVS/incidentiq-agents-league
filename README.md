@@ -66,6 +66,39 @@ Set `AZURE_SEARCH_*` vars in `.env` (see `.env.example`) to enable live Foundry 
   the pool (max=10) is undersized, so requests queue ~480ms ...
 ```
 
+## Web Dashboard Walkthrough
+
+IncidentIQ features a gorgeous, dark-themed glassmorphism web dashboard to visualize the agent's multi-step reasoning process in real-time. Below is a walkthrough of the diagnostic flow:
+
+### 1. Agent Standby
+When an incident is ingested (e.g., checkout latency spike), the dashboard loads the metadata from the telemetry system. The agent is in standby state, waiting for authorization to start the root-cause reasoning loop.
+
+![Agent Standby](docs/screenshots/1_standby.png)
+
+### 2. Autonomous Diagnosis In-Progress
+Clicking **Run Agent Diagnosis** kicks off the reasoning loop. A simulated SRE terminal console opens, displaying live telemetry extraction tool calls (`get_recent_deploys`, `get_metrics`, `get_logs`), hypothesis formulation, and evidence collection.
+
+![Diagnosis In-Progress](docs/screenshots/2_diagnosing.png)
+
+### 3. Step-by-Step Reasoned Conclusion
+Once the diagnosis completes, the dashboard sequentially reveals the gathered facts:
+* **Evidence Collection Timeline**: Interactive list of all tools executed by the agent.
+* **Hypothesis Evaluation**: Visual cards indicating which hypotheses were kept or eliminated with accompanying evidence.
+* **Identified Root Cause**: The pinpointed bottleneck, grounded directly in Foundry IQ (Azure AI Search) runbooks.
+* **Resolution & Action Items**: Interactive buttons for automated mitigation (rollback) and long-term fix (creating a PR).
+
+![Diagnosis Complete](docs/screenshots/3_diagnosed.png)
+
+### 4. Grounded Tool Telemetry
+In the timeline, you can expand any tool call to inspect the raw JSON telemetry metrics, logs, or deployment details that the reasoning agent extracted.
+
+![Expanded Timeline Tool Output](docs/screenshots/4_expanded_timeline.png)
+
+### 5. AI-Generated Post-Mortem Report
+Clicking **View Full Post-Mortem Report** opens a glassmorphism modal with a detailed markdown post-mortem (incident summary, root cause analysis, timeline, and actions) ready to be copied into your incident management tool.
+
+![Post-Mortem Modal](docs/screenshots/5_postmortem_modal.png)
+
 ## How it works
 
 Two execution paths share one reasoning loop and produce the same
